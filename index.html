@@ -28,8 +28,12 @@
   .fld{background:var(--p2);border:1px solid var(--line2);color:var(--tx);font:12.5px var(--mono);padding:7px 8px;border-radius:4px;width:100%;min-width:0;outline:none}
   .fld:focus{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
   .f{display:flex;flex-direction:column;gap:4px;min-width:0}
-  .f label{font-size:10.5px;color:var(--mut);display:flex;justify-content:space-between}
-  .f label .u{color:var(--dim)}
+  .f label{font-size:10.5px;color:var(--mut);display:flex;align-items:center}
+  .f label .u{color:var(--dim);margin-left:auto}
+  .help{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line2);border-radius:50%;color:var(--dim);font-size:9px;line-height:1;font-weight:600;cursor:help;margin-left:5px;position:relative;flex:none}
+  .help:hover{border-color:var(--mint);color:var(--mint)}
+  .help:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:-4px;background:var(--bg);border:1px solid var(--line2);border-radius:6px;padding:8px 10px;width:230px;font-size:10.5px;line-height:1.5;font-weight:400;color:var(--tx);text-align:left;text-transform:none;letter-spacing:0;box-shadow:0 6px 18px rgba(0,0,0,.55);z-index:100;pointer-events:none;white-space:normal}
+  .help:hover::before{content:'';position:absolute;bottom:calc(100% + 2px);left:2px;border:5px solid transparent;border-top-color:var(--line2);z-index:100}
   .btn{font:11px var(--mono);background:var(--p2);color:var(--tx);border:1px solid var(--line2);padding:6px 10px;border-radius:5px;cursor:pointer}
   .btn:hover{border-color:var(--mint);color:var(--mint2)}
   .btn.blue:hover{border-color:var(--blue);color:var(--blue)}
@@ -579,6 +583,41 @@ $('eqSvg').addEventListener('mouseleave',()=>{if(S.eqHover){S.eqHover=null;rende
 (function(){const e=economics({makerFee:0.015,fundingHr:0.00125,holdHrs:4,tp:0.10,minOrder:10,total:50,start:59500,end:69900,balance:100,leverage:1});
   console.assert(Math.abs(e.cost-0.035)<1e-9&&Math.abs(e.net-0.065)<1e-9&&e.levels===5,'econ');
   console.assert(drawdownAt(50000,[60000,62000],10)<0,'dd');console.log('self-test passed');})();
+
+// ---- help tooltips (one source of truth; injected per field) ----
+const HELP={
+  start_price:'Bottom of the grid — the lowest buy rung. Set below the current price so the grid sits under the market. Draggable on the chart.',
+  end_price:'Top of the grid — the highest rung. Must be above start_price. Widen it for a bigger range.',
+  limit_price:'Invalidation stop, below start_price. If price breaks below it the grid halts — your downside cap. Draggable on the chart.',
+  total_amount_quote:'Total capital the grid deploys (USDC), split across rungs. Raise it for more levels / a tighter grid.',
+  min_order_amount_quote:'Notional per rung (USDC). The Hyperliquid minimum is ~$10. Lower it to fit more levels into the same capital.',
+  min_spread_between_orders:'Minimum gap between rungs as a fraction (0.001 = 0.1%). A floor on spacing; rarely the binding limit.',
+  take_profit_pct:'Profit target per rung (%). Linked to spacing by default (⛓) so each rung sells at the next rung up — a coherent grid. Click ⛓ to unlink.',
+  max_open_orders:'How many grid orders rest in the book at once. Lower = lighter exchange load and fewer simultaneous fills.',
+  max_orders_per_batch:'Orders placed per refresh cycle. Keeps each order burst small.',
+  order_frequency:'Seconds between order-refresh cycles. Lower = more responsive but more API calls.',
+  activation_bounds:'Only place orders within this fraction of mid-price. Leave blank for always-active across the whole range.',
+  keep_position:'On stop, keep the position you accumulated instead of closing it out.',
+  connector_name:'Venue. hyperliquid_perpetual = USDC-margined perps; hyperliquid = spot.',
+  trading_pair:'Market symbol. Perps use BASE-USD (e.g. BTC-USD); spot uses BASE-USDC.',
+  side:'BUY = long grid, accumulates as price falls. SELL = short grid.',
+  id:'Config identifier — also the bot instance name once deployed.',
+  leverage:'Perp only. 1× = no leverage (safest, near-spot). Higher adds liquidation risk. Ignored on spot.',
+  position_mode:'Perp only. Hyperliquid supports ONEWAY only — HEDGE errors on start.',
+  maker_fee:'Your maker fee % for the economics estimate. HL perp base ≈ 0.015%. Not written to the config.',
+  funding_hr:'Hourly funding rate % for the cost estimate. Auto-filled from live data; type to override. Not written to the config.',
+  hold_hrs:'Average hours a position stays open — used to estimate funding cost per cycle.',
+  balance:'Your account equity (USDC) for the margin-use estimate. "use as balance ↓" fills it from a fetched wallet.',
+  addr:'Your PUBLIC Hyperliquid address for read-only balance lookup. Never a private key — it cannot trade.',
+  center:'Reference price for the ±% buttons — type a price, then click ±% to auto-set start/end/limit around it.',
+  fname:'Filename for the downloaded .yml. Save it into conf/controllers/.'
+};
+for(const key in HELP){
+  const el=document.querySelector('[data-f="'+key+'"]');if(!el)continue;
+  const lbl=el.closest('.f')?el.closest('.f').querySelector('label'):el.closest('label');if(!lbl)continue;
+  const h=document.createElement('span');h.className='help';h.dataset.tip=HELP[key];h.textContent='?';
+  const u=lbl.querySelector('.u');if(u)lbl.insertBefore(h,u);else lbl.appendChild(h);
+}
 
 // ---- boot ----
 function boot(){if(window.LightweightCharts){initChart();}else{return setTimeout(boot,50);}}
