@@ -126,14 +126,14 @@
       <fieldset class="fs">
         <legend>take profit &amp; execution</legend>
         <div class="row3">
-          <div class="f"><label>take_profit <span class="u">%</span></label><input class="fld" id="take_profit_pct" data-f="take_profit_pct" type="number" step="any" value="0.15"></div>
+          <div class="f"><label>take_profit <span class="u" id="tpLinkBtn" style="cursor:pointer;user-select:none" title="link take_profit to rung spacing">⛓ link spacing</span></label><input class="fld" id="take_profit_pct" data-f="take_profit_pct" type="number" step="any" value="0.15"></div>
           <div class="f"><label>max_open_orders</label><input class="fld" data-f="max_open_orders" type="number" value="2"></div>
           <div class="f"><label>per_batch</label><input class="fld" data-f="max_orders_per_batch" type="number" value="1"></div>
           <div class="f"><label>order_freq <span class="u">s</span></label><input class="fld" data-f="order_frequency" type="number" value="3"></div>
           <div class="f"><label>activation <span class="u">blank=null</span></label><input class="fld" data-f="activation_bounds" type="number" step="any" placeholder="null"></div>
           <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx);align-self:end;padding-bottom:7px;cursor:pointer"><input data-f="keep_position" type="checkbox" style="width:auto;accent-color:var(--mint)">keep_position</label>
         </div>
-        <div class="note" style="margin-top:9px">entry &amp; take-profit are both <b style="color:var(--mut)">LIMIT_MAKER</b> (fixed by strategy).</div>
+        <div class="note" style="margin-top:9px">entry &amp; take-profit are both <b style="color:var(--mut)">LIMIT_MAKER</b>. <b style="color:var(--mint)">⛓</b> links take_profit to rung spacing (coherent grid) — click to unlink for fixed-TP scalping.</div>
       </fieldset>
 
       <fieldset class="fs">
@@ -251,7 +251,7 @@ const $=id=>document.getElementById(id);
 const PROJECTION_CYCLES=40, SHOW_LEVELS=true;
 const API='https://api.hyperliquid.xyz/info', IMS={'1m':6e4,'5m':3e5,'15m':9e5,'1h':36e5,'4h':144e5,'1d':864e5};
 const S={interval:'1h',price:null,chg:'',chgUp:true,ohlc:'',fundingText:'live —',fundingUnit:'%/hr',fundingColor:'var(--mut)',
-  acct:null,balStatus:'',deployed:false,status:'connecting…',live:false,ddHover:null,eqHover:null};
+  acct:null,balStatus:'',deployed:false,status:'connecting…',live:false,ddHover:null,eqHover:null,tpLinked:true};
 let candles=[],loadingOlder=false,noMore=false,fundingEdited=false,acctVal=null;
 let chart=null,candleSeries=null,volSeries=null,priceLines=[],band=null,ddScreen=[],eqScreen=[];
 
@@ -283,6 +283,7 @@ function buildFlags(i,e,perp,limit){
   if(i.total<=0)F.push(['err','total_amount_quote must be > 0']);
   if(i.tp<=e.rtFee)F.push(['err',`TP ${pct(i.tp)} ≤ fee floor ${pct(e.rtFee)} — every cycle loses`]);
   else if(i.tp<3*e.rtFee)F.push(['warn',`thin edge — TP < 3× fees (${pct(3*e.rtFee)})`]);
+  if(!S.tpLinked&&e.spacing>0&&i.tp<0.6*e.spacing)F.push(['warn',`take_profit ${pct(i.tp)} ≪ spacing ${pct(e.spacing,2)} — rungs scalp, not a grid; ⛓ link TP to spacing`]);
   if(e.net<=0)F.push(['warn',`net ≤ 0 at ${i.holdHrs}h hold — funding eats it`]);
   if(i.minOrder<10)F.push(['warn','min_order < ~$10 Hyperliquid minimum']);
   if(e.levels<2)F.push(['warn','< 2 levels — not a grid; raise size or lower min_order']);
@@ -359,6 +360,10 @@ function calcEquity(netD){
 
 // ---- RENDER ----
 function render(){
+  // link take_profit to rung spacing when enabled (spacing depends only on range + levels, not TP)
+  {const e0=economics(econInputs()),tpi=$('take_profit_pct'),lb=$('tpLinkBtn');
+   if(S.tpLinked){if(isFinite(e0.spacing)&&e0.spacing>0)tpi.value=+e0.spacing.toFixed(3);tpi.readOnly=true;tpi.style.opacity='0.65';tpi.style.cursor='not-allowed';if(lb){lb.textContent='⛓ = spacing';lb.style.color='var(--mint)';}}
+   else{tpi.readOnly=false;tpi.style.opacity='1';tpi.style.cursor='';if(lb){lb.textContent='⛓ link spacing';lb.style.color='var(--dim)';}}}
   const i=econInputs(),perp=fv('connector_name')==='hyperliquid_perpetual',limit=n('limit_price'),e=economics(i);
   const netCol=e.net>0?'var(--mint)':(e.net<0?'var(--red)':'var(--amber)');
   // header
@@ -558,6 +563,7 @@ function svgHover(e,pts,set){
 document.querySelectorAll('[data-f]').forEach(el=>el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',()=>{updateChart();render();}));
 $('funding_hr').addEventListener('input',()=>{fundingEdited=true;});
 $('uselive').onclick=()=>{if(S.price){$('center').value=S.price.toFixed(1);render();}};
+$('tpLinkBtn').onclick=()=>{S.tpLinked=!S.tpLinked;updateChart();render();};
 document.querySelectorAll('[data-pct]').forEach(b=>b.onclick=()=>{const c=n('center')||S.price;if(!c||c<=0)return;const p=parseFloat(b.dataset.pct)/100;$('start_price').value=+(c*(1-p)).toFixed(1);$('end_price').value=+(c*(1+p)).toFixed(1);$('limit_price').value=+(c*(1-p-0.03)).toFixed(1);updateChart();render();});
 document.querySelectorAll('#tfs button').forEach(b=>b.onclick=()=>{S.interval=b.dataset.tf;loadCandles();});
 $('fetchbal').onclick=fetchBalance;
