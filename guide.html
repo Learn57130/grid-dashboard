@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>grid_strike — guide</title>
+<style>
+  :root{--bg:#0a0e0f;--panel:#111819;--p2:#0e1415;--line:#1e2a2c;--line2:#2a3a3c;--tx:#cdd8d5;--mut:#6d817d;--dim:#4a5b58;--mint:#34d399;--mint2:#5eead4;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--mono:ui-monospace,"SF Mono",Menlo,Monaco,"Cascadia Code",monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.65 var(--mono);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+  a{color:var(--mint2);text-decoration:none}a:hover{color:var(--mint)}
+  .wrap{max-width:820px;margin:0 auto;padding:22px 22px 80px}
+  header{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:24px;flex-wrap:wrap}
+  .ttl{font-size:15px;font-weight:600}.ttl .b{color:var(--mint)}
+  .tag{font-size:10px;color:var(--mut);border:1px solid var(--line2);padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.09em}
+  .sp{flex:1}
+  .back{font-size:12px;color:var(--mut);border:1px solid var(--line2);padding:5px 11px;border-radius:6px}
+  .back:hover{border-color:var(--mint);color:var(--mint2)}
+  h2{font-size:15px;color:var(--mint);text-transform:uppercase;letter-spacing:.1em;margin:34px 0 4px;font-weight:600}
+  h2 .n{color:var(--dim);font-size:12px;letter-spacing:0;text-transform:none}
+  .lead{color:var(--mut);font-size:13px;margin:0 0 16px}
+  .intro{color:var(--tx);font-size:14.5px;line-height:1.7;margin:0 0 8px}
+  .intro b{color:var(--mint2);font-weight:500}
+  .formula{background:var(--p2);border:1px solid var(--line2);border-left:3px solid var(--mint);border-radius:0 6px 6px 0;padding:12px 15px;margin:14px 0;font-size:13px;color:var(--tx)}
+  .formula .c{color:var(--dim)}
+  .formula b{color:var(--amber);font-weight:400}
+  .p{border-top:1px solid var(--line);padding:13px 0;display:grid;grid-template-columns:190px 1fr;gap:16px}
+  @media(max-width:640px){.p{grid-template-columns:1fr;gap:4px}}
+  .pn{font-size:13px;color:var(--mint2);font-weight:500;word-break:break-word}
+  .pn .u{color:var(--dim);font-weight:400;font-size:11px}
+  .pd{font-size:13px;color:var(--tx);line-height:1.6}
+  .pd .t{display:block;margin-top:5px;color:var(--mut);font-size:12px}
+  .pd .t b{color:var(--mint);font-weight:400}
+  .note{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.25);border-radius:6px;padding:12px 15px;margin:14px 0;font-size:13px;color:var(--amber)}
+  .note.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.28);color:var(--red)}
+  .note.mint{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.28);color:var(--mint)}
+  .note b{font-weight:500}
+  code{background:var(--p2);border:1px solid var(--line2);border-radius:3px;padding:1px 5px;font-size:12px;color:var(--mint2)}
+  ol{padding-left:20px}ol li{margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ttl"><span class="b">grid_strike</span> guide</div>
+    <span class="tag">hyperliquid</span>
+    <span class="sp"></span>
+    <a class="back" href="./index.html">◀ builder</a>
+  </header>
+
+  <p class="intro">A <b>grid</b> is a ladder of buy orders across a price range. Each rung buys when price dips to it and sells a little higher — harvesting the up-and-down chop. It profits while price stays <b>inside the range</b>; its risk is price <b>trending out</b>, leaving you holding a losing position. This page explains every knob and how to set it.</p>
+
+  <h2>the mental model <span class="n">read this first</span></h2>
+  <p class="lead">You never set "number of levels" or "spacing" directly — they are <b>derived</b> from the other params:</p>
+  <div class="formula">
+    <span class="c"># how many rungs, and how far apart</span><br>
+    levels &nbsp;= <b>total_amount ÷ min_order</b> &nbsp;<span class="c">(capital limit — usually what binds)</span><br>
+    spacing = <b>range ÷ (levels − 1)</b> &nbsp;&nbsp;<span class="c">where range = (end − start) / start</span>
+  </div>
+  <p class="lead">Example: <code>$50 ÷ $10 = 5 levels</code>; a 17.5% range ÷ 4 gaps = <b style="color:var(--tx)">4.4% spacing</b>. Want more, tighter rungs? Raise <code>total_amount</code> or lower <code>min_order</code>. Want wider rungs? Widen the range.</p>
+
+  <h2>range <span class="n">where the grid sits</span></h2>
+  <div class="p"><div class="pn">start_price <span class="u">low</span></div><div class="pd">Bottom rung of the grid. Set it below the current price.<span class="t">tune: <b>drag the line on the chart</b>, or use the ±% buttons around a center price.</span></div></div>
+  <div class="p"><div class="pn">end_price <span class="u">high</span></div><div class="pd">Top rung. Must be above start_price. Wider gap = bigger range = wider spacing for the same number of levels.<span class="t">tune: bracket where you expect price to oscillate. Too wide and rungs sit too far apart to fill.</span></div></div>
+  <div class="p"><div class="pn">limit_price <span class="u">stop</span></div><div class="pd">Invalidation. Sits below start_price. If price breaks below it, the grid <b>halts</b> — your downside cap.<span class="t">tune: set it at the price where your thesis is wrong. Draggable on the chart.</span></div></div>
+
+  <h2>sizing <span class="n">how much, how many rungs</span></h2>
+  <div class="p"><div class="pn">total_amount_quote <span class="u">USDC</span></div><div class="pd">Total capital the grid deploys, split across rungs.<span class="t">tune: <b>raise it for more levels</b> / a tighter grid. At 1× leverage this is also the margin used.</span></div></div>
+  <div class="p"><div class="pn">min_order_amount_quote <span class="u">USDC</span></div><div class="pd">Notional per rung. Hyperliquid's minimum is ~$10.<span class="t">tune: <b>lower it for more levels</b> from the same capital (down to ~$10).</span></div></div>
+  <div class="p"><div class="pn">min_spread_between_orders <span class="u">frac</span></div><div class="pd">Floor on spacing (0.001 = 0.1%). Rungs can't get closer than this.<span class="t">tune: rarely the binding limit — leave at 0.001 unless you pack lots of capital into a tight range.</span></div></div>
+
+  <h2>take profit <span class="n">profit per rung</span></h2>
+  <div class="p"><div class="pn">take_profit <span class="u">%</span></div><div class="pd">How far above its buy each rung sells. <b>Linked to spacing by default (⛓)</b> so each rung sells at the next rung up — a coherent grid.<span class="t">tune: leave <b>linked</b> for a real grid. Unlink only for fixed small-TP "rung scalping".</span></div></div>
+  <div class="note mint"><b>The coherence rule.</b> For a real grid, <code>take_profit ≈ spacing</code>. If TP is far below spacing (e.g. 0.15% vs 4.4%), you're not gridding — you're running a few disconnected scalp points and the wide spacing is cosmetic. The ⛓ link keeps them equal so the levels actually matter.</div>
+
+  <h2>execution <span class="n">how orders reach the book</span></h2>
+  <div class="p"><div class="pn">max_open_orders</div><div class="pd">How many rungs <b>rest in the book at once</b>. With the default 2, only the 2 rungs nearest price are live — a sliding window that follows the market. Set it to your level count to arm the <b>full ladder</b>.<span class="t">tune: <b>= level count</b> to blanket the range (catches fast moves, ties up more margin); low (2) for a lean price-following pair.</span></div></div>
+  <div class="p"><div class="pn">max_orders_per_batch</div><div class="pd">Orders placed per round. Nearest rungs first.<span class="t">tune: raise to arm many rungs faster; 1 is gentle on the exchange.</span></div></div>
+  <div class="p"><div class="pn">order_frequency <span class="u">s</span></div><div class="pd">Minimum seconds between placement rounds. Only matters while <b>filling empty slots</b> (startup, or after fills) — does nothing once the ladder is full.<span class="t">tune: 3s default is deliberately gentle. Lower to arm faster, at the cost of more frequent API bursts.</span></div></div>
+  <div class="p"><div class="pn">activation_bounds <span class="u">blank=null</span></div><div class="pd">Only place orders within this fraction of mid-price. Blank = always active across the whole range.</div></div>
+  <div class="p"><div class="pn">keep_position</div><div class="pd">On stop, keep the position you accumulated instead of closing it out.</div></div>
+
+  <h2>market &amp; account</h2>
+  <div class="p"><div class="pn">connector_name</div><div class="pd"><code>hyperliquid_perpetual</code> = USDC-margined perps; <code>hyperliquid</code> = spot. (BTC spot on HL is illiquid — use the perp.)</div></div>
+  <div class="p"><div class="pn">trading_pair</div><div class="pd">Perps use <code>BASE-USD</code> (e.g. BTC-USD); spot uses <code>BASE-USDC</code>.</div></div>
+  <div class="p"><div class="pn">side</div><div class="pd"><code>BUY</code> = long grid (accumulates as price falls). <code>SELL</code> = short grid.</div></div>
+  <div class="p"><div class="pn">leverage <span class="u">x · perp</span></div><div class="pd"><b>1× = no leverage</b> (safest, near-spot). Higher adds liquidation risk. Ignored on spot.<span class="t">tune: keep <b>1×</b> for study. Liquidation is remote at 1×.</span></div></div>
+  <div class="p"><div class="pn">position_mode</div><div class="pd">Hyperliquid supports <code>ONEWAY</code> only — HEDGE errors on start.</div></div>
+  <div class="p"><div class="pn">id</div><div class="pd">Config identifier — also the bot instance name once deployed.</div></div>
+
+  <h2>economics assumptions <span class="n">estimate only — not written to config</span></h2>
+  <p class="lead">These feed the live per-cycle math on the builder. They shape the estimate, not the deployed bot.</p>
+  <div class="formula">
+    <span class="c"># what one buy→sell cycle nets</span><br>
+    cost/cycle = <b>2 × maker_fee</b> + <b>funding × hold_hrs</b> &nbsp;<span class="c">(≈ 0.03% fee + carry)</span><br>
+    net/cycle &nbsp;= <b>take_profit − cost/cycle</b>
+  </div>
+  <div class="p"><div class="pn">maker_fee <span class="u">%</span></div><div class="pd">Your maker fee. HL perp base ≈ 0.015%. Both grid legs are LIMIT_MAKER, so a round trip costs ~2×.</div></div>
+  <div class="p"><div class="pn">funding_hr <span class="u">%/hr</span></div><div class="pd">Hourly funding (perp carry). Auto-filled live; type to override. Positive = longs pay.</div></div>
+  <div class="p"><div class="pn">hold_hrs</div><div class="pd">Average hours a rung's position stays open — scales the funding cost per cycle.</div></div>
+  <div class="p"><div class="pn">balance <span class="u">USDC</span></div><div class="pd">Account equity, for the margin-use estimate. "use as balance" fills it from a fetched wallet.</div></div>
+
+  <h2>risk <span class="n">what can go wrong</span></h2>
+  <p class="intro">A grid earns <b>many small wins</b> and risks <b>one big loss</b>. The wins are the take_profit cycles; the loss is the inventory you accumulate if price trends out of the range — you keep buying into the fall down to the limit. The builder's drawdown chart shows that worst case. On a perp, <b>funding</b> also bleeds a position that sits open too long — a thin TP can go negative if a rung is held for days.</p>
+
+  <h2>safety <span class="n">before real money</span></h2>
+  <div class="note red"><b>Use an <code style="color:inherit;border-color:currentColor">api_wallet</code> key, never your main private key.</b> The agent/API wallet from app.hyperliquid.xyz/API can trade but <b>cannot withdraw</b> — so a leaked key can't drain funds. The builder only ever needs your <b>public</b> address for read-only balance.</div>
+  <ol>
+    <li>Keep <b>leverage 1×</b> — liquidation is remote.</li>
+    <li>Fund the <b>perp</b> account: transfer USDC spot → perp in the HL app (BTC lives on the perp).</li>
+    <li>Watch a grid succeed and fail for free first — paper trade on a supported venue, or Hyperliquid testnet.</li>
+    <li>Size it as tuition you can fully lose, not capital that matters.</li>
+  </ol>
+
+  <p style="margin-top:34px;color:var(--dim);font-size:12px">← back to the <a href="./index.html">builder</a> to try these live.</p>
+</div>
+</body>
+</html>
