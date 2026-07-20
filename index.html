@@ -163,7 +163,7 @@
         </div>
         <div class="kpi" style="grid-template-columns:repeat(3,1fr);margin-top:10px;display:none" id="acctGrid">
           <div><div class="k">account value</div><div class="v" id="aVal">—</div></div>
-          <div><div class="k">withdrawable</div><div class="v" id="aWd">—</div></div>
+          <div><div class="k">spot USDC</div><div class="v" id="aSpot">—</div></div>
           <div><div class="k">BTC position</div><div class="v" id="aPos">—</div></div>
         </div>
         <div class="note" style="margin-top:9px">Queries Hyperliquid <b style="color:var(--mut)">clearinghouseState</b> with your public address only. No signing, no key, cannot trade.</div>
@@ -432,7 +432,7 @@ function render(){
   const y=buildYaml();$('yaml').innerHTML=y.html;yamlPlain=y.plain;$('toast').style.opacity=S.toast?'1':'0';
   // account
   $('balStatus').textContent=S.balStatus;
-  if(S.acct){$('acctGrid').style.display='';$('aVal').textContent=S.acct.val;$('aWd').textContent=S.acct.wd;$('aPos').textContent=S.acct.pos;$('aPos').style.color=S.acct.posColor;}
+  if(S.acct){$('acctGrid').style.display='';$('aVal').textContent=S.acct.val;$('aSpot').textContent=S.acct.spot;$('aPos').textContent=S.acct.pos;$('aPos').style.color=S.acct.posColor;}
 }
 let yamlPlain='';
 
@@ -543,16 +543,23 @@ async function loadFunding(){
   }catch(e){S.fundingUnit='%/hr (offline)';render();}
 }
 async function fetchBalance(){
-  const addr=String(fv('addr')).trim();
+  const addr=String(fv('addr')).trim().replace(/^HL:/i,'');   // strip the vault-page HL: prefix
   if(!/^0x[0-9a-fA-F]{40}$/.test(addr)){S.balStatus='invalid address';render();return;}
   S.balStatus='fetching…';render();
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'clearinghouseState',user:addr})});
-    const j=await r.json(),val=parseFloat(j.marginSummary.accountValue),wd=parseFloat(j.withdrawable);
+    const [pr,sr]=await Promise.all([
+      fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'clearinghouseState',user:addr})}),
+      fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'spotClearinghouseState',user:addr})})
+    ]);
+    const j=await pr.json(),val=parseFloat(j.marginSummary.accountValue)||0;
+    const sj=await sr.json(),usdc=parseFloat(((sj.balances||[]).find(b=>b.coin==='USDC')||{}).total||0);
     const btc=(j.assetPositions||[]).find(p=>p.position.coin==='BTC');
     let pos='none',posColor='var(--tx)';
     if(btc){const sz=parseFloat(btc.position.szi),up=parseFloat(btc.position.unrealizedPnl);pos=`${sz} BTC ${up>=0?'+':''}${fmtUsd(up)}`;posColor=up>=0?'var(--mint)':'var(--red)';}
-    acctVal=val;S.acct={val:fmtUsd(val),wd:fmtUsd(wd),pos,posColor};S.balStatus='✓ '+new Date().toLocaleTimeString();render();
+    acctVal=val>0?val:usdc;   // for a perp grid, funds must be on perp; fall back to spot for planning
+    S.acct={val:fmtUsd(val),spot:fmtUsd(usdc),pos,posColor};
+    S.balStatus=(val===0&&usdc>0)?'✓ perp empty — funds on spot, transfer to trade perps':'✓ '+new Date().toLocaleTimeString();
+    render();
   }catch(e){S.balStatus='error — check address';render();}
 }
 
