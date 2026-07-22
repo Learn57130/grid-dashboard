@@ -243,6 +243,7 @@
           <input class="fld" data-f="fname" value="hyperliquid_grid.yml" style="flex:1;min-width:120px">
           <button class="btn" id="copy">copy</button>
           <button class="btn" id="download" style="background:var(--mint);color:#04110c;border-color:var(--mint);font-weight:600">download .yml</button>
+          <button class="btn" id="resetCfg" title="clear saved config, restore defaults">reset</button>
         </div>
       </div>
       <div class="note" style="line-height:1.6">Save into <b style="color:var(--mut)">conf/controllers/</b>. Same name overwrites; new name = new config. Best practice: create one canonical config in the CLI, then tweak here before deploy.</div>
@@ -258,6 +259,10 @@ const API='https://api.hyperliquid.xyz/info', IMS={'1m':6e4,'5m':3e5,'15m':9e5,'
 const S={interval:'1h',price:null,chg:'',chgUp:true,ohlc:'',fundingText:'live —',fundingUnit:'%/hr',fundingColor:'var(--mut)',
   acct:null,balStatus:'',deployed:false,status:'connecting…',live:false,ddHover:null,eqHover:null,tpLinked:true};
 let candles=[],loadingOlder=false,noMore=false,fundingEdited=false,acctVal=null;
+const SKEY='gridbuilder.v1';
+function saveState(){try{const o={_tpLinked:S.tpLinked,_interval:S.interval,_fundingEdited:fundingEdited};document.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.type==='checkbox'?el.checked:el.value;});localStorage.setItem(SKEY,JSON.stringify(o));}catch(e){}}
+function loadState(){try{const s=localStorage.getItem(SKEY);if(!s)return;const o=JSON.parse(s);document.querySelectorAll('[data-f]').forEach(el=>{const v=o[el.dataset.f];if(v!=null){if(el.type==='checkbox')el.checked=!!v;else el.value=v;}});if(o._tpLinked!=null)S.tpLinked=o._tpLinked;if(o._interval)S.interval=o._interval;if(o._fundingEdited)fundingEdited=true;}catch(e){}}
+let _saveT;function scheduleSave(){clearTimeout(_saveT);_saveT=setTimeout(saveState,400);}
 let chart=null,candleSeries=null,volSeries=null,priceLines=[],band=null,ddScreen=[],eqScreen=[];
 
 // ---- helpers ----
@@ -434,6 +439,7 @@ function render(){
   // account
   $('balStatus').textContent=S.balStatus;
   if(S.acct){$('acctGrid').style.display='';$('aVal').textContent=S.acct.val;$('aSpot').textContent=S.acct.spot;$('aPos').textContent=S.acct.pos;$('aPos').style.color=S.acct.posColor;}
+  scheduleSave();
 }
 let yamlPlain='';
 
@@ -573,6 +579,7 @@ function svgHover(e,pts,set){
 
 // ---- wire ----
 document.querySelectorAll('[data-f]').forEach(el=>el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',()=>{updateChart();render();}));
+$('resetCfg').onclick=()=>{if(confirm('Reset all fields to defaults and clear the saved config?')){localStorage.removeItem(SKEY);location.reload();}};
 $('funding_hr').addEventListener('input',()=>{fundingEdited=true;});
 $('uselive').onclick=()=>{if(S.price){$('center').value=S.price.toFixed(1);render();}};
 $('tpLinkBtn').onclick=()=>{S.tpLinked=!S.tpLinked;updateChart();render();};
@@ -629,7 +636,7 @@ for(const key in HELP){
 
 // ---- boot ----
 function boot(){if(window.LightweightCharts){initChart();}else{return setTimeout(boot,50);}}
-render();boot();pollMid();loadFunding();setInterval(pollMid,5000);setInterval(loadFunding,60000);
+loadState();render();boot();pollMid();loadFunding();setInterval(pollMid,5000);setInterval(loadFunding,60000);
 </script>
 </body>
 </html>
